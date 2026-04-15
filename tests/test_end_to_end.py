@@ -38,7 +38,8 @@ def test_end_to_end_pipeline_stubbed():
         chunk_mode="recursive_sections",
         use_hyde=False,
         disable_chunks=False,
-        rerank_mode="none"
+        rerank_mode="none",
+        context_selection_strategy="top_k",
     )
     
     args = argparse.Namespace(
@@ -156,4 +157,3 @@ def test_end_to_end_pipeline_stubbed():
         # Note: chunks might be passed exactly as they are in the 'chunks' list
         assert any("Python is a programming language." in c for c in passed_chunks)
         assert any("Machine learning uses statistics." in c for c in passed_chunks)
-

@@ -15,6 +15,7 @@ import numpy as np
 import faiss
 from rank_bm25 import BM25Okapi
 from src.embedder import SentenceTransformer
+from src.retrieval_policy import infer_source_space
 
 from src.preprocessing.chunking import DocumentChunker, ChunkConfig, print_chunk_stats
 from src.preprocessing.extraction import extract_sections_from_markdown
@@ -56,6 +57,7 @@ def build_index(
     all_chunks: List[str] = []
     sources: List[str] = []
     metadata: List[Dict] = []
+    source_space = infer_source_space(markdown_file)
 
     sections = extract_sections_from_markdown(
         markdown_file,
@@ -113,11 +115,13 @@ def build_index(
                 "mode": chunk_config.to_string(),
                 "char_len": len(clean_chunk),
                 "word_len": len(clean_chunk.split()),
+                "estimated_tokens": max(1, len(clean_chunk) // 4),
                 "section": c['heading'],
                 "section_path": full_section_path,
                 "text_preview": clean_chunk[:100],
                 "page_numbers": sorted(list(chunk_pages)),
                 "chunk_id": total_chunks + sub_chunk_id,
+                "source_space": source_space,
             }
 
             chunk_prefix = (

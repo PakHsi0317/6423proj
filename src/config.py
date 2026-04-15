@@ -29,6 +29,9 @@ class RAGConfig:
     )
     rerank_mode: str = ""
     rerank_top_k: int = 5
+    context_selection_strategy: str = "token_budget"
+    context_token_budget: int = 1400
+    enable_cross_space_routing: bool = True
 
     # generation
     max_gen_tokens: int = 400
@@ -70,6 +73,8 @@ class RAGConfig:
         assert self.top_k > 0, "top_k must be > 0"
         assert self.num_candidates >= self.top_k, "num_candidates must be >= top_k"
         assert self.ensemble_method.lower() in {"linear", "weighted", "rrf"}
+        assert self.context_selection_strategy.lower() in {"top_k", "token_budget"}
+        assert self.context_token_budget > 0, "context_token_budget must be > 0"
         assert self.embedding_model_context_window > 0, "embedding_model_context_window must be > 0"
         if self.ensemble_method.lower() in {"linear", "weighted"}:
             s = sum(self.ranker_weights.values()) or 1.0

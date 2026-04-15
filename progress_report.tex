@@ -1,0 +1,93 @@
+\documentclass[10pt,twocolumn]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{times}
+\usepackage[colorlinks=true,urlcolor=blue]{hyperref}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.35em}
+
+\begin{document}
+
+\title{\vspace{-1.2em}Project Checkpoint Progress Report: Designing a Strong Baseline for Programming RAG with Cross-Space Retrieval and Token-Efficient Context Selection\vspace{-0.8em}}
+\author{}
+\date{}
+\maketitle
+\thispagestyle{empty}
+
+\textbf{Public GitHub Repository:} \url{https://github.com/PakHsi0317/6423proj}
+
+\section*{Project Overview}
+This project builds on the existing TokenSmith baseline rather than replacing it. The main goal is to turn the current TokenSmith pipeline into a stronger and more reproducible baseline for question answering over technical documents, and then measure how much two controlled improvements help: cross-space retrieval and token-efficient context selection. In the long term, I want to compare four systems fairly: the original baseline, the baseline plus cross-space retrieval, the baseline plus token-efficient context selection, and the baseline plus both improvements.
+
+For this checkpoint, I kept the required course setup with the provided \texttt{silberschatz.pdf} textbook and \texttt{top\_k = 10} in the configuration. The current implementation focuses on strengthening the retrieval and context-construction stages, since the original baseline mainly relied on retrieving candidates, truncating to a fixed top-$k$, and passing those chunks to generation. My core hypothesis is that a better context-selection policy can reduce prompt cost substantially while preserving or improving answer quality, and that source-space awareness will matter even more once the corpus contains heterogeneous sources such as textbook chunks, notes, examples, and documentation.
+
+\section*{Current Progress}
+I completed the main TokenSmith setup for the checkpoint environment and verified the baseline pipeline end to end on the required textbook. This includes using the correct \texttt{silberschatz.pdf}, extracting textbook markdown, building the section-based index, keeping the required \texttt{top\_k = 10} configuration, and running local question-answering queries against the indexed textbook. I also confirmed that the repository is organized as a reproducible codebase with the required public GitHub link.
+
+On top of that baseline, I implemented the first stage of the planned optimization. The main change is a new token-efficient context-selection policy. Instead of always taking the top retrieved chunks after ranking, the system now estimates the token cost of each chunk and selects chunks under a fixed context budget. The selector uses ranked retrieval scores together with chunk size so that shorter, high-utility chunks can be preferred over long but marginally useful chunks. I kept \texttt{top\_k} as an upper bound so that the enhanced system can still be compared fairly with the original baseline.
+
+I also added source-space-aware scaffolding for cross-space retrieval. During indexing, each chunk now receives metadata such as estimated token count and a coarse \texttt{source\_space} label. During retrieval, the system can use simple query-dependent routing heuristics to prefer relevant source spaces when they exist. Since my current corpus is still dominated by the textbook, this is not yet a full heterogeneous-source experiment, but the retrieval and metadata infrastructure needed for that evaluation is now in place.
+
+To make the implementation stable, I updated the retrieval and reranking path so that chunk identifiers are preserved through selection and reranking. I also added tests for the new selector and for source-space filtering behavior, and I manually validated that the baseline path still works when the selector is switched back to fixed top-$k$.
+
+I ran preliminary evaluation experiments on the benchmark questions already included in the repository. In a retrieval-focused comparison without the final cross-encoder reranker, the new token-budgeted selector reduced the average estimated context size from about 1963 tokens to about 881 tokens across the benchmark set, which is about a 55\% reduction in context cost. Early answer-level spot checks were mixed but encouraging. For example, on an ACID-properties question the new selector kept similar keyword coverage while using much less context, and on an ARIES atomicity question the generated answer covered more of the expected recovery concepts than the baseline. However, not every question improved; on a database-schema question, the tighter budget reduced some content coverage. Overall, the current results suggest that token-efficient context selection is already useful, but still needs tuning to improve answer quality more consistently.
+
+\section*{Challenges and Observations}
+The biggest observation so far is that reducing context size is much easier than improving answer quality uniformly. The token-budgeted selector clearly lowers prompt cost, but the best budget and scoring policy are question-dependent. Some definition-style questions still need broader context than a very aggressive budget allows, so a fixed budget can occasionally remove useful evidence.
+
+Another limitation is that the current checkpoint corpus is still mostly a single source space: the textbook. Because of that, the new cross-space retrieval logic is only partially validated right now. I have implemented metadata and routing support, but I do not yet have a complete heterogeneous corpus that would let me measure the full benefit of routing across textbook, notes, examples, and code-oriented sources.
+
+I also ran into an engineering issue with the local cross-encoder reranker environment. The current reranker depends on a local Hugging Face model cache, and cache or permission problems made it harder to run one fully matched end-to-end evaluation path with the exact reranking setup in the default configuration. This does not block the new context-selection implementation itself, but it does limit how much of the final benchmark I can claim at this checkpoint.
+
+Finally, the benchmark's ideal chunk IDs do not always line up neatly with the current index variant and chunk boundaries, which means I should not rely on a single automatic metric. Manual error analysis is still important. This is especially true for textbook questions where several nearby chunks may all be relevant but differ in how directly they answer the question.
+
+\section*{Next Steps}
+My next step is to improve the consistency of the token-efficient selector. I plan to tune the context budget and the chunk-utility scoring so that shorter context windows do not remove important explanatory evidence on questions such as schema definitions or broader conceptual questions. I also want to test whether a small amount of diversity control across sections can improve coverage without greatly increasing token cost.
+
+The second major next step is to expand the corpus into genuinely heterogeneous source spaces. Once I add more clearly separated sources such as notes, examples, and API-style material, I will be able to evaluate the cross-space retrieval component more honestly. At that point I can compare routing strategies and see which question types benefit most from source-space awareness.
+
+After that, I plan to run the full controlled comparison proposed in the original project description: baseline, baseline plus cross-space retrieval, baseline plus token-efficient context selection, and baseline plus both. The evaluation will include answer quality, estimated prompt tokens, latency, and retrieval behavior, together with manual failure analysis on questions that remain difficult for the local RAG system.
+
+\section*{Appendix: Learning Episode}
+\textbf{Topic: ARIES recovery}
+
+\textbf{Question 1:} What are the three passes of ARIES crash recovery, and what does each pass do?
+
+\textbf{Correct textbook chunk(s):}
+\begin{quote}\small
+ARIES recovers from a system crash in three passes. - Analysis pass: This pass determines which transactions to undo, which pages were dirty at the time of the crash, and the LSN from which the redo pass should start. - Redo pass: This pass starts from a position determined during analysis and performs a redo, repeating history, to bring the database to a state it was in before the crash. - Undo pass: This pass rolls back all transactions that were incomplete at the time of crash.
+\end{quote}
+
+\textbf{Question 2:} What information does ARIES keep in log records, pages, and checkpoint-related tables to support efficient recovery?
+
+\textbf{Correct textbook chunk(s):}
+\begin{quote}\small
+Each log record in ARIES has a log sequence number (LSN) that uniquely identifies the record. The number is conceptually just a logical identifier whose value is greater for log records that occur later in the log. In practice, the LSN is generated in such a way that it can also be used to locate the log record on disk. Typically, ARIES splits a log into multiple log files, each of which has a file number. When a log file grows to some limit, ARIES appends further log records to a new log file; the new log file has a file number that is higher by 1 than the previous log file. The LSN then consists of a file number and an offset within the file. Each page also maintains an identifier called the PageLSN. Whenever an update operation (whether physical or physiological) occurs on a page, the operation stores the LSN of its log record in the PageLSN field of the page. During the redo phase of recovery, any log records with LSN less than or equal to the PageLSN of a page should not be executed on the page, since their actions are already reflected on the page.
+\end{quote}
+\begin{quote}\small
+Each log record also contains the LSN of the previous log record of the same transaction. This value, stored in the PrevLSN field, permits log records of a transaction to be fetched backward, without reading the whole log. There are special redo-only log records generated during transaction rollback, called compensation log records (CLRs) in ARIES. These serve the same purpose as the redo-only log records in our earlier recovery scheme. In addition, CLRs serve the role of the operation-abort log records in our scheme. The CLRs have an extra field, called the UndoNextLSN, that records the LSN of the log that needs to be undone next, when the transaction is being rolled back. The DirtyPageTable contains a list of pages that have been updated in the database buffer. For each page, it stores the PageLSN and a field called the RecLSN, which helps identify log records that have been applied already to the version of the page on disk.
+\end{quote}
+
+\textbf{Question 3:} How does the analysis pass determine where the redo phase should begin?
+
+\textbf{Correct textbook chunk(s):}
+\begin{quote}\small
+The analysis pass finds the last complete checkpoint log record and reads in the DirtyPageTable from this record. It then sets RedoLSN to the minimum of the RecLSNs of the pages in the DirtyPageTable. If there are no dirty pages, it sets RedoLSN to the LSN of the checkpoint log record. The redo pass starts its scan of the log from RedoLSN. All the log records earlier than this point have already been applied to the database pages on disk.
+\end{quote}
+
+\textbf{Question 4:} Once redo starts, how does ARIES decide whether a particular update log record must actually be replayed?
+
+\textbf{Correct textbook chunk(s):}
+\begin{quote}\small
+The redo pass repeats history by replaying every action that is not already reflected in the page on disk. The redo pass scans the log forward from RedoLSN. Whenever it finds an update log record, it takes this action: If the page is not in DirtyPageTable or if the LSN of the update log record is less than the RecLSN of the page in DirtyPageTable, then the redo pass skips the log record. Otherwise the redo pass fetches the page from disk, and if the PageLSN is less than the LSN of the log record, it redoes the log record. Note that if either of the tests is negative, then the effects of the log record have already appeared on the page; otherwise the effects of the log record are not reflected on the page.
+\end{quote}
+
+\textbf{Question 5:} When does ARIES perform undo, and how does it know which log record to undo next for each transaction?
+
+\textbf{Correct textbook chunk(s):}
+\begin{quote}\small
+The undo pass is relatively straightforward. It performs a single backward scan of the log, undoing all transactions in undo-list. The undo pass examines only log records of transactions in undo-list; the last LSN recorded during the analysis pass is used to find the last log record for each transaction in undo-list. Whenever an update log record is found, it is used to perform an undo (whether for transaction rollback during normal processing, or during the restart undo pass). The undo pass generates a CLR containing the undo action performed (which must be physiological). It sets the UndoNextLSN of the CLR to the PrevLSN value of the update log record. If a CLR is found, its UndoNextLSN value indicates the LSN of the next log record to be undone for that transaction; later log records for that transaction have already been rolled back. For log records other than CLRs, the PrevLSN field of the log record indicates the LSN of the next log record to be undone for that transaction.
+\end{quote}
+
+\end{document}

@@ -26,7 +26,7 @@ from src.retriever import (
     get_page_numbers, 
     load_artifacts
 )
-from src.ranking.reranker import rerank
+from src.ranking.reranker import rerank_candidate_indices
 
 ANSWER_NOT_FOUND = "I'm sorry, but I don't have enough information to answer that question."
 
@@ -114,10 +114,11 @@ def get_answer(
     sources = artifacts["sources"]
     retrievers = artifacts["retrievers"]
     ranker = artifacts["ranker"]
+    metadata = artifacts.get("meta") or artifacts.get("metadata") or []
     # Ensure these locals exist for all control flows to avoid UnboundLocalError
     ranked_chunks: List[str] = []
     topk_idxs: List[int] = []
-    scores = []
+    scores: List[float] = []
     
     # Step 1: Get chunks (golden, retrieved, or none)
     chunks_info = None
@@ -135,6 +136,7 @@ def get_answer(
         # print(f"Retrieval query: {retrieval_query}")
         if cfg.use_hyde:
             retrieval_query = generate_hypothetical_document(question, cfg.gen_model, max_tokens=cfg.hyde_max_tokens)
+            hyde_query = retrieval_query
         
         pool_n = max(cfg.num_candidates, cfg.top_k + 10)
         raw_scores: Dict[str, Dict[int, float]] = {}
@@ -148,15 +150,30 @@ def get_answer(
         #     print(f"  {retriever_name}: {list(score_dict.values())}")
         # Step 2: Ranking
         ordered, scores = ranker.rank(raw_scores=raw_scores)
-        # print(f"Ordered candidate indices after ranking: {ordered[:cfg.top_k]}")
-        # print(f"Corresponding scores: {scores[:cfg.top_k]}")
-        topk_idxs = filter_retrieved_chunks(cfg, chunks, ordered)
+        fused_score_map = {int(idx): float(score) for idx, score in zip(ordered, scores)}
+
+        topk_idxs, selection_info = filter_retrieved_chunks(
+            cfg,
+            chunks,
+            ordered,
+            scores=scores,
+            metadata=metadata,
+            query=question,
+        )
+        additional_log_info = dict(additional_log_info or {})
+        additional_log_info["context_selection"] = selection_info
+
+        rerank_n = min(len(topk_idxs), cfg.rerank_top_k) if cfg.rerank_top_k > 0 else len(topk_idxs)
+        topk_idxs, rerank_scores = rerank_candidate_indices(
+            question,
+            topk_idxs,
+            chunks,
+            mode=cfg.rerank_mode,
+            top_n=rerank_n,
+        )
         ranked_chunks = [chunks[i] for i in topk_idxs]
-        # print(f"Top-{cfg.top_k} chunk indices after filtering: {topk_idxs}")
-        # print("Len Ranked chunks:", len(ranked_chunks))
-        # print("Example ranked chunk content:", ranked_chunks[0] if ranked_chunks else "No chunks retrieved")
-        
-        
+        scores = [rerank_scores.get(idx, fused_score_map.get(idx, 0.0)) for idx in topk_idxs]
+
         # Capture chunk info if in test mode
         if is_test_mode:
             # Compute individual ranker ranks
@@ -174,6 +191,7 @@ def get_answer(
             
             chunks_info = []
             for rank, idx in enumerate(topk_idxs, 1):
+                meta = metadata[idx] if 0 <= idx < len(metadata) else {}
                 chunks_info.append({
                     "rank": rank,
                     "chunk_id": idx,
@@ -184,12 +202,9 @@ def get_answer(
                     "bm25_rank": bm25_ranks.get(idx, 0),
                     "index_score": index_scores.get(idx, 0),
                     "index_rank": index_ranks.get(idx, 0),
+                    "token_estimate": meta.get("estimated_tokens"),
+                    "source_space": meta.get("source_space"),
                 })
-
-        # Step 3: Final re-ranking
-        ranked_chunks = rerank(question, ranked_chunks, mode=cfg.rerank_mode, top_n=cfg.rerank_top_k)
-        # print("Reranked Chunks", type(ranked_chunks), len(ranked_chunks), type(ranked_chunks[0]) if ranked_chunks else "No chunks")
-        # print("Example reranked chunk content:", ranked_chunks[0] if ranked_chunks else "No chunks after reranking")
 
     if not ranked_chunks and not cfg.disable_chunks:
         if console:
@@ -231,12 +246,11 @@ def get_answer(
         ans = render_streaming_ans(console, stream_iter)
 
         # Logging
-        meta = artifacts.get("meta", [])
-        page_nums = get_page_numbers(topk_idxs, meta)
+        page_nums = get_page_numbers(topk_idxs, metadata)
         logger.save_chat_log(
             query=question,
             config_state=cfg.get_config_state(),
-            ordered_scores=scores[:len(topk_idxs)] if 'scores' in locals() else [],
+            ordered_scores=scores[:len(topk_idxs)],
             chat_request_params={
                 "system_prompt": system_prompt,
                 "max_tokens": cfg.max_gen_tokens
@@ -299,7 +313,6 @@ def run_chat_session(args: argparse.Namespace, cfg: RAGConfig):
         sys.exit(1)
 
     chat_history = []
-    additional_log_info = {}
     print("Initialization complete. You can start asking questions!")
     print("Type 'exit' or 'quit' to end the session.")
     while True:
@@ -313,6 +326,7 @@ def run_chat_session(args: argparse.Namespace, cfg: RAGConfig):
                 break
             
             effective_q = q
+            additional_log_info = {}
             if cfg.enable_history and chat_history:
                 try:
                     effective_q = contextualize_query(q, chat_history, cfg.gen_model)

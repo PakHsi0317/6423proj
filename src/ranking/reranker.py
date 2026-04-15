@@ -4,7 +4,7 @@ reranker.py
 This module supports re-ranking strategies applied before the generative LLM call.
 """
 
-from typing import Dict, List
+from typing import Dict, List, Sequence, Tuple
 from sentence_transformers import CrossEncoder
 
 # -------------------------- Cross-Encoder Cache --------------------------
@@ -40,7 +40,35 @@ def rerank_with_cross_encoder(query: str, chunks: List[str], top_n: int) -> List
     chunk_with_scores = list(zip(chunks, scores))
     chunk_with_scores.sort(key=lambda x: x[1], reverse=True)
 
-    return chunk_with_scores[:top_n]
+    return [chunk for chunk, _score in chunk_with_scores[:top_n]]
+
+
+def rerank_candidate_indices(
+    query: str,
+    candidate_indices: Sequence[int],
+    chunks: List[str],
+    mode: str,
+    top_n: int,
+) -> Tuple[List[int], Dict[int, float]]:
+    """
+    Rerank candidate chunk indices while preserving the mapping back to metadata.
+    """
+    candidate_indices = list(candidate_indices)
+    if not candidate_indices:
+        return [], {}
+
+    top_n = min(top_n, len(candidate_indices))
+    if mode == "cross_encoder":
+        model = get_cross_encoder()
+        pairs = [(query, chunks[idx]) for idx in candidate_indices]
+        scores = model.predict(pairs, show_progress_bar=False)
+        scored_candidates = list(zip(candidate_indices, scores))
+        scored_candidates.sort(key=lambda item: item[1], reverse=True)
+        reranked = scored_candidates[:top_n]
+        return [idx for idx, _score in reranked], {int(idx): float(score) for idx, score in reranked}
+
+    truncated = candidate_indices[:top_n]
+    return truncated, {int(idx): 0.0 for idx in truncated}
 
 
 # -------------------------- Reranking Router -----------------------------

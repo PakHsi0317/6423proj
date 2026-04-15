@@ -21,6 +21,12 @@ from src.embedder import CachedEmbedder
 
 from src.config import RAGConfig
 from src.index_builder import preprocess_for_bm25
+from src.retrieval_policy import (
+    estimate_chunk_tokens,
+    filter_candidates_by_source_space,
+    infer_source_space,
+    select_context_indices,
+)
 
 
 # -------------------------- Embedder cache ------------------------------
@@ -50,6 +56,16 @@ def load_artifacts(artifacts_dir: os.PathLike, index_prefix: str) -> Tuple[faiss
     sources     = pickle.load(open(artifacts_dir / f"{index_prefix}_sources.pkl", "rb"))
     metadata = pickle.load(open(artifacts_dir / f"{index_prefix}_meta.pkl", "rb"))
 
+    for idx, meta in enumerate(metadata):
+        if not isinstance(meta, dict):
+            continue
+        if "source_space" not in meta:
+            source_path = sources[idx] if idx < len(sources) else ""
+            meta["source_space"] = infer_source_space(source_path)
+        if "estimated_tokens" not in meta:
+            chunk_text = chunks[idx] if idx < len(chunks) else ""
+            meta["estimated_tokens"] = estimate_chunk_tokens(chunk_text, meta)
+
     return faiss_index, bm25_index, chunks, sources, metadata
 
 
@@ -73,9 +89,33 @@ def get_page_numbers(chunk_indices: list[int], metadata: list[dict]) -> dict[int
 
 # -------------------------- Filtering logic -----------------------------
 
-def filter_retrieved_chunks(cfg: RAGConfig, chunks, ordered):
-    topk_idxs = ordered[:cfg.top_k]
-    return topk_idxs
+def filter_retrieved_chunks(
+    cfg: RAGConfig,
+    chunks,
+    ordered,
+    *,
+    scores=None,
+    metadata=None,
+    query: str = "",
+):
+    routed_candidates, preferred_spaces = filter_candidates_by_source_space(
+        query=query,
+        ordered=ordered,
+        metadata=metadata,
+        enabled=cfg.enable_cross_space_routing,
+    )
+    selected_idxs, selection_info = select_context_indices(
+        strategy=cfg.context_selection_strategy,
+        top_k=cfg.top_k,
+        token_budget=cfg.context_token_budget,
+        ordered=routed_candidates,
+        scores=scores,
+        chunks=chunks,
+        metadata=metadata,
+    )
+    if preferred_spaces:
+        selection_info["preferred_source_spaces"] = preferred_spaces
+    return selected_idxs, selection_info
 
 # -------------------------- Retrieval core ------------------------------
 
