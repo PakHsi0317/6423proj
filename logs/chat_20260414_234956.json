@@ -1,0 +1,77 @@
+{
+    "timestamp": "2026-04-14T23:49:56.968189",
+    "query": "What is Python?",
+    "chat_request_params": {
+        "system_prompt": "baseline",
+        "max_tokens": 400
+    },
+    "config_state": {
+        "chunk_mode": "recursive_sections",
+        "chunk_size_in_chars": 2000,
+        "chunk_overlap": 300,
+        "top_k": 2,
+        "num_candidates": 5,
+        "embed_model": "models/Qwen3-Embedding-4B-Q5_K_M.gguf",
+        "embedding_model_context_window": 4096,
+        "ensemble_method": "linear",
+        "rrf_k": 60,
+        "ranker_weights": {
+            "faiss": 0.5,
+            "bm25": 0.5
+        },
+        "rerank_mode": "none",
+        "rerank_top_k": 5,
+        "context_selection_strategy": "top_k",
+        "context_token_budget": 1400,
+        "enable_cross_space_routing": true,
+        "max_gen_tokens": 400,
+        "gen_model": "models/qwen2.5-3b-instruct-q8_0.gguf",
+        "system_prompt_mode": "baseline",
+        "disable_chunks": false,
+        "use_golden_chunks": false,
+        "output_mode": "terminal",
+        "metrics": [
+            "all"
+        ],
+        "use_hyde": false,
+        "hyde_max_tokens": 300,
+        "use_double_prompt": false,
+        "enable_history": true,
+        "max_history_turns": 3,
+        "use_indexed_chunks": false,
+        "extracted_index_path": "data/extracted_index.json",
+        "page_to_chunk_map_path": "index/sections/textbook_index_page_to_chunk_map.json",
+        "enable_topic_extraction": false
+    },
+    "top_k": 2,
+    "retrieved_chunks": [
+        {
+            "rank": 1,
+            "idx": 0,
+            "chunk": "Chunk 0: Python is a programming language.",
+            "source": "doc1",
+            "score": 0.0,
+            "page_number": [
+                1
+            ]
+        },
+        {
+            "rank": 2,
+            "idx": 2,
+            "chunk": "Chunk 2: Machine learning uses statistics.",
+            "source": "doc2",
+            "score": 0.0,
+            "page_number": [
+                1
+            ]
+        }
+    ],
+    "full_response": "This is a dummy response from the stubbed LLM.",
+    "context_selection": {
+        "strategy": "top_k",
+        "token_budget": 1400,
+        "selected_token_estimate": 22,
+        "candidate_count": 5,
+        "selected_count": 2
+    }
+}

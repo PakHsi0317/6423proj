@@ -1,0 +1,115 @@
+{
+    "timestamp": "2026-04-15T11:34:58.776632",
+    "query": "What is the goal of ARIES recovery?",
+    "chat_request_params": {
+        "system_prompt": "baseline",
+        "max_tokens": 400
+    },
+    "config_state": {
+        "chunk_mode": "recursive_sections",
+        "chunk_size_in_chars": 2000,
+        "chunk_overlap": 300,
+        "top_k": 10,
+        "num_candidates": 50,
+        "embed_model": "models/Qwen3-Embedding-4B-Q5_K_M.gguf",
+        "embedding_model_context_window": 4096,
+        "ensemble_method": "rrf",
+        "rrf_k": 60,
+        "ranker_weights": {
+            "faiss": 1,
+            "bm25": 0,
+            "index_keywords": 0
+        },
+        "rerank_mode": "cross_encoder",
+        "rerank_top_k": 5,
+        "context_selection_strategy": "token_budget",
+        "context_token_budget": 1400,
+        "enable_cross_space_routing": true,
+        "max_gen_tokens": 400,
+        "gen_model": "models/qwen2.5-1.5b-instruct-q5_k_m.gguf",
+        "system_prompt_mode": "baseline",
+        "disable_chunks": false,
+        "use_golden_chunks": false,
+        "output_mode": "terminal",
+        "metrics": [
+            "all"
+        ],
+        "use_hyde": false,
+        "hyde_max_tokens": 300,
+        "use_double_prompt": false,
+        "enable_history": true,
+        "max_history_turns": 3,
+        "use_indexed_chunks": false,
+        "extracted_index_path": "data/extracted_index.json",
+        "page_to_chunk_map_path": "index/sections/textbook_index_page_to_chunk_map.json",
+        "enable_topic_extraction": false
+    },
+    "top_k": 5,
+    "retrieved_chunks": [
+        {
+            "rank": 1,
+            "idx": 1270,
+            "chunk": "ARIES recovers from a system crash in three passes.  - Analysis pass : This pass determines which transactions to undo, which pages were dirty at the time of the crash, and the LSN from which the redo pass should start. - Redo pass : This pass starts from a position determined during analysis and performs a redo, repeating history, to bring the database to a state it was in before the crash. - Undo pass : This pass rolls back all transactions that were incomplete at the time of crash.",
+            "source": "data/silberschatz--extracted_markdown.md",
+            "score": 4.114545822143555,
+            "page_number": [
+                1461,
+                1462
+            ]
+        },
+        {
+            "rank": 2,
+            "idx": 1276,
+            "chunk": ". - Recovery optimizations : The DirtyPageTable can be used to prefetch pages during redo, instead of fetching a page only when the system finds a log record to be applied to the page. Out-of-order redo is also possible: Redo can be postponed on a page being fetched from  - disk and performed when the page is fetched. Meanwhile, other log records can continue to be processed. designed to improve concurrency, reduce logging overhead, In summary, the ARIES algorithm is a state-of-the-art recovery algorithm, incorporating a variety of optimizations and reduce recovery time.",
+            "source": "data/silberschatz--extracted_markdown.md",
+            "score": 3.811026096343994,
+            "page_number": [
+                1466,
+                1467
+            ]
+        },
+        {
+            "rank": 3,
+            "idx": 1274,
+            "chunk": ". Thus, the redo pass must start at the log record with LSN 7564. Note that this LSN is less than the LSN of the checkpoint log record, since the ARIES checkpointing algorithm does not flush modified pages to stable storage. The DirtyPageTable at the end of analysis would include pages 4894, 7200 from the checkpoint log record, and 2390 which is updated by the log record with LSN 7570. At the end of the analysis pass, the   list of transactions to be undone consists of only T 145 in this example. Figure 19.10 Recovery actions in ARIES. Page 946 The redo pass for the preceding example starts from LSN 7564 and performs redo of log records whose pages appear in DirtyPageTable. The undo pass needs to undo only transaction T 145 , and hence it starts from its LastLSN value 7567 and continues backwards until the record &lt;T 145 start &gt; is found at LSN 7563.",
+            "source": "data/silberschatz--extracted_markdown.md",
+            "score": -0.3670821487903595,
+            "page_number": [
+                1463,
+                1465
+            ]
+        },
+        {
+            "rank": 4,
+            "idx": 1266,
+            "chunk": ". As mentioned earlier, dirty pages are those that have been updated in memory, and the disk version is not up-to-date. 4. Uses a fuzzy-checkpointing scheme that records only information about dirty pages and associated information and does not even require writing of dirty pages to disk. It flushes dirty pages in the background, continuously, instead of writing them during checkpoints. Page 942 In the rest of this section, we provide an overview of ARIES. The bibliographical notes list some references that provide a complete description of ARIES.",
+            "source": "data/silberschatz--extracted_markdown.md",
+            "score": -4.647427558898926,
+            "page_number": [
+                1458
+            ]
+        },
+        {
+            "rank": 5,
+            "idx": 1238,
+            "chunk": "In this section, we consider several subtle details that are essential to the implementation of a crash-recovery scheme that ensures data consistency and imposes a minimal amount of overhead on interactions with the database.",
+            "source": "data/silberschatz--extracted_markdown.md",
+            "score": -6.116103172302246,
+            "page_number": [
+                1431
+            ]
+        }
+    ],
+    "full_response": "The goal of ARIES recovery is to ensure data consistency and impose a minimal amount of overhead on interactions with the database.",
+    "context_selection": {
+        "strategy": "token_budget",
+        "token_budget": 1400,
+        "selected_token_estimate": 1292,
+        "candidate_count": 50,
+        "selected_count": 9,
+        "dropped_count": 41,
+        "preferred_source_spaces": [
+            "textbook"
+        ]
+    }
+}
