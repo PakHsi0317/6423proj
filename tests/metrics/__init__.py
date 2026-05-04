@@ -4,9 +4,17 @@ from tests.metrics.scorer import SimilarityScorer
 from tests.metrics.semantic import SemanticSimilarityMetric
 from tests.metrics.keyword_match import KeywordMatchMetric
 from tests.metrics.nli import NLIEntailmentMetric
-from tests.metrics.llm_judge import LLMJudgeMetric
-from tests.metrics.async_llm_judge import AsyncLLMJudgeMetric
 from tests.metrics.chunk_retrieval import ChunkRetrievalMetric
+
+try:
+    from tests.metrics.llm_judge import LLMJudgeMetric
+except ImportError:
+    LLMJudgeMetric = None
+
+try:
+    from tests.metrics.async_llm_judge import AsyncLLMJudgeMetric
+except ImportError:
+    AsyncLLMJudgeMetric = None
 
 __all__ = [
     'MetricBase',
@@ -15,7 +23,10 @@ __all__ = [
     'SemanticSimilarityMetric',
     'KeywordMatchMetric',
     'NLIEntailmentMetric',
-    'LLMJudgeMetric',
-    'AsyncLLMJudgeMetric',
     'ChunkRetrievalMetric',
 ]
+
+if LLMJudgeMetric is not None:
+    __all__.append('LLMJudgeMetric')
+if AsyncLLMJudgeMetric is not None:
+    __all__.append('AsyncLLMJudgeMetric')

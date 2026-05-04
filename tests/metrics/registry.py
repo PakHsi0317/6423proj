@@ -22,7 +22,8 @@ class MetricRegistry:
         self.register(SemanticSimilarityMetric())
         self.register(KeywordMatchMetric())
         self.register(NLIEntailmentMetric())
-        self.register(AsyncLLMJudgeMetric())
+        if AsyncLLMJudgeMetric is not None:
+            self.register(AsyncLLMJudgeMetric())
         self.register(ChunkRetrievalMetric())
 
     def register(self, metric: MetricBase):

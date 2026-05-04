@@ -34,19 +34,18 @@ git clone https://github.com/georgia-tech-db/TokenSmith.git
 cd TokenSmith
 ```
 
-Create the model directory and put in the appropriate models in it.
+Create the model directories and put the appropriate models in them.
 ```shell
-mkdir models
-cd models
+mkdir -p models/generators models/embedders
 ```
 
 Now, let's say config.yaml has following configs:
 ```yaml
-embed_model: "models/Qwen3-Embedding-4B-Q5_K_M.gguf"
-model_path: "models/qwen2.5-1.5b-instruct-q5_k_m.gguf"
+embed_model: "models/embedders/Qwen3-Embedding-4B-Q5_K_M.gguf"
+gen_model: "models/generators/qwen2.5-1.5b-instruct-q5_k_m.gguf"
 ```
 For above config file, download appropriate files from the below link 
-and put them in the `models/` folder with the expected file name.
+and put them in the `models/embedders/` and `models/generators/` folders with the expected file name.
 - https://huggingface.co/Qwen/Qwen3-Embedding-4B-GGUF/tree/main
 - https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/tree/main
 
@@ -138,7 +137,7 @@ halo_mode: "none"
 seg_filter: null
 
 # Model settings
-model_path: "models/qwen2.5-0.5b-instruct-q5_k_m.gguf"
+gen_model: "models/generators/qwen2.5-0.5b-instruct-q5_k_m.gguf"
 
 # Indexing settings
 chunk_mode: "tokens" # or "chars"
@@ -175,7 +174,7 @@ make run-index ARGS="--pdf_dir <path_to_pdf> --index_prefix book_index --config 
 ### Chat with custom settings
 
 ```shell
-python -m src.main chat --config <path_to_yaml> --model_path <path_to_gguf>
+python -m src.main chat --config <path_to_yaml> --gen_model <path_to_gguf>
 ```
 
 ### Use an existing llama.cpp build
@@ -201,7 +200,7 @@ make show-deps
 * `--config`: path to YAML config
 * `--pdf_dir`: directory with PDFs
 * `--index_prefix`: prefix for index files
-* `--model_path`: path to GGUF model
+* `--gen_model` / `--model_path`: path to generator GGUF model
 
 ### Indexing
 

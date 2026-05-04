@@ -33,9 +33,15 @@ ANSWER_NOT_FOUND = "I'm sorry, but I don't have enough information to answer tha
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Welcome to TokenSmith!")
     parser.add_argument("mode", choices=["index", "chat"], help="operation mode")
+    parser.add_argument("--config", default="config/config.yaml", help="path to YAML config")
     parser.add_argument("--pdf_dir", default="data/chapters/", help="directory containing PDF files")
     parser.add_argument("--index_prefix", default="textbook_index", help="prefix for generated index files")
-    parser.add_argument("--model_path", help="path to generation model")
+    parser.add_argument(
+        "--gen_model",
+        "--model_path",
+        dest="gen_model",
+        help="path to generation model"
+    )
     parser.add_argument("--system_prompt_mode", choices=["baseline", "tutor", "concise", "detailed"], default="baseline")
     
     indexing_group = parser.add_argument_group("indexing options")
@@ -49,6 +55,16 @@ def parse_args() -> argparse.Namespace:
     )
 
     return parser.parse_args()
+
+
+def apply_runtime_overrides(args: argparse.Namespace, cfg: RAGConfig) -> RAGConfig:
+    """
+    Apply CLI overrides after loading the YAML config.
+    """
+    gen_model_override = getattr(args, "gen_model", None) or getattr(args, "model_path", None)
+    if gen_model_override:
+        cfg.gen_model = gen_model_override
+    return cfg
 
 def run_index_mode(args: argparse.Namespace, cfg: RAGConfig):
     strategy = cfg.get_chunk_strategy()
@@ -66,7 +82,7 @@ def run_index_mode(args: argparse.Namespace, cfg: RAGConfig):
         sys.exit(1)
 
     build_index(
-        markdown_file=str(md_files[0]),
+        markdown_files=[str(path) for path in md_files],
         chunker=chunker,
         chunk_config=cfg.chunk_config,
         embedding_model_path=cfg.embed_model,
@@ -368,9 +384,11 @@ def run_chat_session(args: argparse.Namespace, cfg: RAGConfig):
 
 def main():
     args = parse_args()
-    config_path = pathlib.Path("config/config.yaml")
-    if not config_path.exists(): raise FileNotFoundError("config/config.yaml not found.")
+    config_path = pathlib.Path(args.config)
+    if not config_path.exists():
+        raise FileNotFoundError(f"{config_path} not found.")
     cfg = RAGConfig.from_yaml(config_path)
+    cfg = apply_runtime_overrides(args, cfg)
     print(f"Loaded configuration from {config_path.resolve()}.")
     if args.mode == "index":
         run_index_mode(args, cfg)

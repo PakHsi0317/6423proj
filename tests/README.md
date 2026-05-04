@@ -69,7 +69,7 @@ ranker_weights:
 rrf_k: 60
 
 # Generator Configuration
-model_path: "models/qwen2.5-0.5b-instruct-q5_k_m.gguf"
+gen_model: "models/generators/qwen2.5-0.5b-instruct-q5_k_m.gguf"
 max_gen_tokens: 400
 system_prompt_mode: "tutor"  # Options: baseline, tutor, concise, detailed
 

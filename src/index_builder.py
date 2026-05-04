@@ -9,7 +9,7 @@ import pickle
 import pathlib
 import re
 import json
-from typing import List, Dict
+from typing import List, Dict, Optional, Sequence
 
 import numpy as np
 import faiss
@@ -31,9 +31,34 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 DEFAULT_EXCLUSION_KEYWORDS = ['questions', 'exercises', 'summary', 'references']
 
 
+def _normalize_markdown_inputs(
+    markdown_file: Optional[str],
+    markdown_files: Optional[Sequence[str]],
+) -> List[str]:
+    inputs: List[str] = []
+    if markdown_files:
+        inputs.extend(str(path) for path in markdown_files if path)
+    if markdown_file:
+        inputs.append(str(markdown_file))
+
+    # Preserve order but remove duplicates.
+    seen = set()
+    normalized: List[str] = []
+    for path in inputs:
+        if path in seen:
+            continue
+        seen.add(path)
+        normalized.append(path)
+
+    if not normalized:
+        raise ValueError("At least one markdown file is required to build the index.")
+    return normalized
+
+
 def build_index(
-    markdown_file: str,
+    markdown_file: Optional[str] = None,
     *,
+    markdown_files: Optional[Sequence[str]] = None,
     chunker: DocumentChunker,
     chunk_config: ChunkConfig,
     embedding_model_path: str,
@@ -54,86 +79,90 @@ def build_index(
         - {prefix}_meta.pkl
         - {prefix}_page_to_chunk_map.json
     """
+    markdown_inputs = _normalize_markdown_inputs(markdown_file, markdown_files)
+
     all_chunks: List[str] = []
     sources: List[str] = []
     metadata: List[Dict] = []
-    source_space = infer_source_space(markdown_file)
+    page_to_chunk_ids: Dict[int, set[int]] = {}
+    page_pattern = re.compile(r'--- Page (\d+) ---')
 
-    sections = extract_sections_from_markdown(
-        markdown_file,
-        exclusion_keywords=DEFAULT_EXCLUSION_KEYWORDS
-    )
+    for markdown_path in markdown_inputs:
+        source_space = infer_source_space(markdown_path)
+        sections = extract_sections_from_markdown(
+            markdown_path,
+            exclusion_keywords=DEFAULT_EXCLUSION_KEYWORDS
+        )
 
-    page_to_chunk_ids = {}
-    current_page = 1
-    total_chunks = 0
-    heading_stack = []
+        current_page = 1
+        heading_stack = []
 
-    # Step 1: Chunk
-    for i, c in enumerate(sections):
-        current_level = c.get('level', 1)
-        chapter_num = c.get('chapter', 0)
+        # Step 1: Chunk
+        for c in sections:
+            current_level = c.get('level', 1)
+            chapter_num = c.get('chapter', 0)
 
-        while heading_stack and heading_stack[-1][0] >= current_level:
-            heading_stack.pop()
+            while heading_stack and heading_stack[-1][0] >= current_level:
+                heading_stack.pop()
 
-        if c['heading'] != "Introduction":
-            heading_stack.append((current_level, c['heading']))
+            if c['heading'] != "Introduction":
+                heading_stack.append((current_level, c['heading']))
 
-        path_list = [h[1] for h in heading_stack]
-        full_section_path = " ".join(path_list)
-        full_section_path = f"Chapter {chapter_num} " + full_section_path
+            path_list = [h[1] for h in heading_stack]
+            full_section_path = " ".join(path_list)
+            full_section_path = f"Chapter {chapter_num} " + full_section_path
 
-        sub_chunks = chunker.chunk(c['content'])
-        page_pattern = re.compile(r'--- Page (\d+) ---')
+            sub_chunks = chunker.chunk(c['content'])
 
-        for sub_chunk_id, sub_chunk in enumerate(sub_chunks):
-            chunk_pages = set()
-            fragments = page_pattern.split(sub_chunk)
+            for sub_chunk in sub_chunks:
+                chunk_pages = set()
+                fragments = page_pattern.split(sub_chunk)
 
-            if fragments[0].strip():
-                page_to_chunk_ids.setdefault(current_page, set()).add(total_chunks + sub_chunk_id)
-                chunk_pages.add(current_page)
+                if fragments[0].strip():
+                    chunk_pages.add(current_page)
 
-            for idx in range(1, len(fragments), 2):
-                try:
-                    new_page = int(fragments[idx]) + 1
-                    if fragments[idx + 1].strip():
-                        page_to_chunk_ids.setdefault(new_page, set()).add(total_chunks + sub_chunk_id)
-                        chunk_pages.add(new_page)
-                    current_page = new_page
-                except (IndexError, ValueError):
+                for idx in range(1, len(fragments), 2):
+                    try:
+                        new_page = int(fragments[idx]) + 1
+                        if fragments[idx + 1].strip():
+                            chunk_pages.add(new_page)
+                        current_page = new_page
+                    except (IndexError, ValueError):
+                        continue
+
+                clean_chunk = re.sub(page_pattern, '', sub_chunk).strip()
+
+                if c["heading"] == "Introduction" or not clean_chunk:
                     continue
 
-            clean_chunk = re.sub(page_pattern, '', sub_chunk).strip()
+                chunk_id = len(all_chunks)
+                if source_space == "textbook":
+                    for page_no in chunk_pages:
+                        page_to_chunk_ids.setdefault(page_no, set()).add(chunk_id)
 
-            if c["heading"] == "Introduction":
-                continue
+                meta = {
+                    "filename": markdown_path,
+                    "document_id": pathlib.Path(markdown_path).stem,
+                    "mode": chunk_config.to_string(),
+                    "char_len": len(clean_chunk),
+                    "word_len": len(clean_chunk.split()),
+                    "estimated_tokens": max(1, len(clean_chunk) // 4),
+                    "section": c['heading'],
+                    "section_path": full_section_path,
+                    "text_preview": clean_chunk[:100],
+                    "page_numbers": sorted(list(chunk_pages)),
+                    "chunk_id": chunk_id,
+                    "source_space": source_space,
+                }
 
-            meta = {
-                "filename": markdown_file,
-                "mode": chunk_config.to_string(),
-                "char_len": len(clean_chunk),
-                "word_len": len(clean_chunk.split()),
-                "estimated_tokens": max(1, len(clean_chunk) // 4),
-                "section": c['heading'],
-                "section_path": full_section_path,
-                "text_preview": clean_chunk[:100],
-                "page_numbers": sorted(list(chunk_pages)),
-                "chunk_id": total_chunks + sub_chunk_id,
-                "source_space": source_space,
-            }
+                chunk_prefix = (
+                    f"Description: {full_section_path} Content: "
+                    if use_headings else ""
+                )
 
-            chunk_prefix = (
-                f"Description: {full_section_path} Content: "
-                if use_headings else ""
-            )
-
-            all_chunks.append(chunk_prefix + clean_chunk)
-            sources.append(markdown_file)
-            metadata.append(meta)
-
-        total_chunks += len(sub_chunks)
+                all_chunks.append(chunk_prefix + clean_chunk)
+                sources.append(markdown_path)
+                metadata.append(meta)
 
     # Save page-to-chunk map
     final_map = {page: sorted(list(ids)) for page, ids in page_to_chunk_ids.items()}

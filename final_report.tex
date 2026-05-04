@@ -1,0 +1,101 @@
+\documentclass[10pt,twocolumn]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{times}
+\usepackage[colorlinks=true,urlcolor=blue]{hyperref}
+\usepackage{booktabs}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.35em}
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.05}
+
+\begin{document}
+
+\title{\vspace{-1.2em}Final Report: Designing a Strong Baseline for Programming RAG with Cross-Space Retrieval and Token-Efficient Context Selection\vspace{-0.8em}}
+\author{}
+\date{}
+\maketitle
+\thispagestyle{empty}
+
+\textbf{GitHub Repository:} \url{https://github.com/PakHsi0317/6423proj}
+
+\section*{Goals and Progress to Date}
+The original goal of this project was not to replace TokenSmith with a completely new system, but to turn the existing TokenSmith pipeline into a stronger and more reproducible baseline for technical question answering over long documents. From the proposal stage, I wanted to evaluate two controlled improvements on top of the same baseline: cross-space retrieval and token-efficient context selection. The overall research question was whether retrieval quality and answer quality could be improved without simply increasing prompt size, and whether source-aware retrieval would matter once the system had to search across heterogeneous materials such as textbook chunks, notes, examples, and documentation.
+
+The first project goal was to make the baseline itself explicit and reproducible. I completed that goal. The current repository now supports a clear end-to-end pipeline for extraction, indexing, retrieval, reranking, context construction, and generation. I kept the course checkpoint constraints, including the provided \texttt{silberschatz.pdf} book and \texttt{top\_k = 10} configuration, so that the project remains comparable to the original TokenSmith setup. I also updated the repository to match the newer model-directory layout expected by the upstream TokenSmith repository, which made the local environment more stable and reproducible.
+
+The second goal was to implement token-efficient context selection as an improvement over naive fixed top-$k$ truncation. I completed this goal as well. Instead of taking the highest-ranked chunks and passing them directly to generation, the system now estimates the token cost of each chunk and selects a subset under a fixed context budget. The selector preserves ranking information but also accounts for chunk size, which allows it to prefer shorter and more information-dense chunks when the prompt budget is tight. Importantly, I kept the original top-$k$ limit as an upper bound so that the enhanced system can still be compared fairly against the baseline.
+
+The third goal was to add cross-space retrieval. I partially completed this goal. I implemented the core infrastructure required for that experiment: multi-file indexing, chunk-level \texttt{source\_space} labels, \texttt{document\_id} metadata, and source-aware routing heuristics in retrieval. This means the codebase can now represent and query multiple spaces rather than treating every chunk as if it came from one homogeneous corpus. However, the empirical evaluation of this component is still limited by the current corpus. Most of the material used in the completed experiments still comes from the textbook, so cross-space routing has not yet had access to a rich enough heterogeneous collection to show its full value.
+
+The final goal from the proposal was to run controlled comparisons among four variants: baseline, baseline plus cross-space retrieval, baseline plus token-efficient context selection, and baseline plus both improvements. I completed the experimental framework for this comparison by adding a dedicated evaluation script that can run all four variants under the same configuration. I also ran reproducible smoke experiments with this setup. Because the current corpus is still textbook-heavy, the strongest conclusions so far are about token-efficient context selection rather than cross-space routing. Even so, the framework needed for the final comparison is now in place, which is a meaningful step beyond the original checkpoint.
+
+\section*{Correctness Testing}
+I tested correctness at both the component and system levels. At the component level, I added and ran targeted tests for retrieval policy behavior, benchmark configuration plumbing, and the new indexing path. The retrieval-policy tests check that the token-budgeted selector behaves differently from fixed top-$k$ truncation and that source-space filtering logic works as expected. The benchmark and configuration tests verify that the project uses the correct generator-model key after the upstream TokenSmith directory-layout change, that runtime overrides are applied consistently, and that benchmark runs construct the same type of configuration object used by the main system.
+
+I also added a project-completion test file for the specific modifications introduced during this project. One test verifies that command-line model overrides correctly update the runtime configuration. A second test verifies that the index builder now supports multiple markdown files, produces metadata for more than one source, and writes a page-to-chunk map that remains sensible for textbook chunks. This test matters because cross-space retrieval depends on the system being able to index multiple source files without collapsing them into a single undifferentiated corpus.
+
+At the pipeline level, I kept the end-to-end tests that exercise the main retrieval and answer-generation flow and verified that the baseline path still works when the selector is switched back to ordinary top-$k$. I also updated the benchmark harness so that it passes the correct generator path, context-selection settings, and routing flags into the runtime configuration. In practice, this mattered because a mismatch between benchmark configuration and runtime configuration would have made the experimental results hard to trust.
+
+The main targeted test run I used before writing this report was:
+\begin{quote}\small
+\texttt{pytest tests/test\_benchmarks.py tests/test\_end\_to\_end.py tests/test\_retrieval\_policy.py tests/test\_project\_completion.py -q --output-mode=terminal}
+\end{quote}
+This run passed all seven tests. In addition to unit and integration tests, I manually ran the new comparison script in both retrieval-only mode and full-answer mode. These smoke runs ensured that all four experimental variants could execute end to end and produce structured output files for later analysis. I also manually inspected selected outputs to make sure that reductions in context size were coming from the selector itself rather than from a broken retrieval path.
+
+\section*{Experimental Results}
+I evaluated the implementation using a controlled four-way comparison among the baseline, cross-space retrieval alone, token-efficient context selection alone, and both improvements together. To isolate retrieval and context-construction behavior, I first ran a retrieval-focused comparison over three existing benchmark questions: \texttt{acid\_properties}, \texttt{database\_schema}, and \texttt{aries\_atomicity}. In this setting, the main measurement was the average estimated number of context tokens passed to the generator.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lrr}
+\toprule
+Variant & Avg. context tokens & Avg. selected chunks \\
+\midrule
+Baseline & 1993.3 & 5.0 \\
+Cross-space only & 1993.3 & 5.0 \\
+Token budget only & 823.3 & 5.0 \\
+Both improvements & 823.3 & 5.0 \\
+\bottomrule
+\end{tabular}
+\caption{Retrieval-focused comparison over three benchmark questions.}
+\end{table}
+
+The main result is clear: token-efficient context selection substantially reduced prompt cost. Compared with the baseline, the token-budgeted selector reduced average context size from about 1993 tokens to about 823 tokens, which is roughly a 59\% reduction. The number of selected chunks remained the same on average, so the reduction did not come from simply dropping to fewer chunks; instead, it came from choosing shorter and more compact evidence under the same upper-bound selection regime. In contrast, cross-space retrieval by itself produced no measurable change in this experiment. That result is not surprising because the indexed corpus for these experiments is still dominated by one source space, the textbook.
+
+I also ran a full smoke evaluation on a representative question, \texttt{acid\_properties}, using keyword and chunk-retrieval metrics. These results are shown below.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lrrr}
+\toprule
+Variant & Context tokens & Keyword hits & Answer score \\
+\midrule
+Baseline & 2223 & 4 & 0.115 \\
+Cross-space only & 2223 & 4 & 0.115 \\
+Token budget only & 1153 & 4 & 0.115 \\
+Both improvements & 1153 & 5 & 0.144 \\
+\bottomrule
+\end{tabular}
+\caption{Full-mode smoke evaluation on \texttt{acid\_properties}.}
+\end{table}
+
+These answer-level results suggest that the token-budgeted selector can preserve answer quality even when prompt size is cut substantially. On this question, token-efficient context selection reduced the context from 2223 tokens to 1153 tokens while keeping the same keyword-hit count and answer score as the baseline. When combined with the current source-aware logic, the system improved from four keyword hits to five and from an answer score of 0.115 to 0.144 on the same reduced context budget. This is not a large enough benchmark to claim a universal quality improvement, but it is a useful sign that the selector is not simply saving tokens by removing important evidence.
+
+Manual inspection of additional outputs showed the same overall pattern. Some questions, such as the ARIES atomicity example examined during development, benefited from the more compact context because the answer became more focused on recovery concepts. Other questions, such as the database-schema example, sometimes lost useful background information when the budget was too tight. This means the strongest claim supported by the current data is that token-efficient context selection improves context efficiency and can preserve or modestly improve answer quality on at least some questions. The current experiments do not support a strong claim that cross-space retrieval already improves overall answer quality, because the corpus is not yet heterogeneous enough to stress that part of the system.
+
+One additional observation is that automatic chunk-recall metrics are less reliable than they initially appear. The benchmark's ideal chunk identifiers do not always align cleanly with the current chunk boundaries and index variant, which can make chunk-level recall underestimate whether the retrieved evidence is actually useful. For that reason, I treated automatic metrics as one signal rather than the only signal, and combined them with manual inspection of retrieved chunks and generated answers.
+
+\section*{Concrete Future Work}
+The next concrete task is to build a genuinely heterogeneous corpus so that the cross-space retrieval component can be evaluated fairly. The code now supports multiple markdown inputs and source-space metadata, but the experiments need additional notes, examples, and documentation-like sources before routing decisions can become meaningful. Once those sources are added, I can rerun the same four-way comparison and measure whether source-aware routing improves retrieval quality or answer quality for particular question types.
+
+The second task is to improve the token-efficient selector itself. Right now it uses a simple utility tradeoff between retrieval rank and chunk size. A stronger version could include section diversity, redundancy penalties, or query-type-aware budgets so that definition questions, procedural questions, and explanatory questions do not all receive the same amount of context. This is the most direct way to improve the cases where a tight budget currently removes useful evidence.
+
+The third task is to strengthen evaluation. I want to run the full benchmark with a stable reranking setup, add latency measurements for all four variants, and extend answer scoring beyond the current smoke metrics. A larger evaluation would make it easier to determine whether the observed gains are robust or concentrated in a small number of questions.
+
+Finally, I would like to perform a better failure analysis. In particular, I want to categorize errors into retrieval misses, routing mistakes, context-selection mistakes, and generation mistakes. That analysis would help clarify whether future improvements should focus on better candidate retrieval, better source routing, or better prompt construction under a fixed token budget.
+
+\end{document}

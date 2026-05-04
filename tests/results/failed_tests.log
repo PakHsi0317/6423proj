@@ -1,0 +1,66 @@
+
+============================================================
+BENCHMARK FAILURE: aggregation_grouping
+============================================================
+Error running TokenSmith: PermissionError at C:\Users\bjiao\.cache\huggingface\hub\models--cross-encoder--ms-marco-MiniLM-L6-v2 when downloading cross-encoder/ms-marco-MiniLM-L6-v2. Check cache directory permissions. Common causes: 1) another user is downloading the same model (please wait); 2) a previous download was canceled and the lock file needs manual removal.
+============================================================
+
+============================================================
+BENCHMARK FAILURE: acid_properties
+============================================================
+Error running TokenSmith: PermissionError at C:\Users\bjiao\.cache\huggingface\hub\models--cross-encoder--ms-marco-MiniLM-L6-v2 when downloading cross-encoder/ms-marco-MiniLM-L6-v2. Check cache directory permissions. Common causes: 1) another user is downloading the same model (please wait); 2) a previous download was canceled and the lock file needs manual removal.
+============================================================
+
+============================================================
+BENCHMARK FAILURE: bptree
+============================================================
+Error running TokenSmith: PermissionError at C:\Users\bjiao\.cache\huggingface\hub\models--cross-encoder--ms-marco-MiniLM-L6-v2 when downloading cross-encoder/ms-marco-MiniLM-L6-v2. Check cache directory permissions. Common causes: 1) another user is downloading the same model (please wait); 2) a previous download was canceled and the lock file needs manual removal.
+============================================================
+
+============================================================
+BENCHMARK FAILURE: fd_normalization
+============================================================
+Error running TokenSmith: PermissionError at C:\Users\bjiao\.cache\huggingface\hub\models--cross-encoder--ms-marco-MiniLM-L6-v2 when downloading cross-encoder/ms-marco-MiniLM-L6-v2. Check cache directory permissions. Common causes: 1) another user is downloading the same model (please wait); 2) a previous download was canceled and the lock file needs manual removal.
+============================================================
+
+============================================================
+BENCHMARK FAILURE: sql_isolation
+============================================================
+Error running TokenSmith: PermissionError at C:\Users\bjiao\.cache\huggingface\hub\models--cross-encoder--ms-marco-MiniLM-L6-v2 when downloading cross-encoder/ms-marco-MiniLM-L6-v2. Check cache directory permissions. Common causes: 1) another user is downloading the same model (please wait); 2) a previous download was canceled and the lock file needs manual removal.
+============================================================
+
+============================================================
+BENCHMARK FAILURE: primary_foreign_keys
+============================================================
+Error running TokenSmith: PermissionError at C:\Users\bjiao\.cache\huggingface\hub\models--cross-encoder--ms-marco-MiniLM-L6-v2 when downloading cross-encoder/ms-marco-MiniLM-L6-v2. Check cache directory permissions. Common causes: 1) another user is downloading the same model (please wait); 2) a previous download was canceled and the lock file needs manual removal.
+============================================================
+
+============================================================
+BENCHMARK FAILURE: database_schema
+============================================================
+Error running TokenSmith: PermissionError at C:\Users\bjiao\.cache\huggingface\hub\models--cross-encoder--ms-marco-MiniLM-L6-v2 when downloading cross-encoder/ms-marco-MiniLM-L6-v2. Check cache directory permissions. Common causes: 1) another user is downloading the same model (please wait); 2) a previous download was canceled and the lock file needs manual removal.
+============================================================
+
+============================================================
+BENCHMARK FAILURE: book_authors
+============================================================
+Error running TokenSmith: PermissionError at C:\Users\bjiao\.cache\huggingface\hub\models--cross-encoder--ms-marco-MiniLM-L6-v2 when downloading cross-encoder/ms-marco-MiniLM-L6-v2. Check cache directory permissions. Common causes: 1) another user is downloading the same model (please wait); 2) a previous download was canceled and the lock file needs manual removal.
+============================================================
+
+============================================================
+BENCHMARK FAILURE: aries_atomicity
+============================================================
+Error running TokenSmith: PermissionError at C:\Users\bjiao\.cache\huggingface\hub\models--cross-encoder--ms-marco-MiniLM-L6-v2 when downloading cross-encoder/ms-marco-MiniLM-L6-v2. Check cache directory permissions. Common causes: 1) another user is downloading the same model (please wait); 2) a previous download was canceled and the lock file needs manual removal.
+============================================================
+
+============================================================
+BENCHMARK FAILURE: oltp_vs_analytics
+============================================================
+Error running TokenSmith: PermissionError at C:\Users\bjiao\.cache\huggingface\hub\models--cross-encoder--ms-marco-MiniLM-L6-v2 when downloading cross-encoder/ms-marco-MiniLM-L6-v2. Check cache directory permissions. Common causes: 1) another user is downloading the same model (please wait); 2) a previous download was canceled and the lock file needs manual removal.
+============================================================
+
+============================================================
+BENCHMARK FAILURE: lossy_decomposition
+============================================================
+Error running TokenSmith: PermissionError at C:\Users\bjiao\.cache\huggingface\hub\models--cross-encoder--ms-marco-MiniLM-L6-v2 when downloading cross-encoder/ms-marco-MiniLM-L6-v2. Check cache directory permissions. Common causes: 1) another user is downloading the same model (please wait); 2) a previous download was canceled and the lock file needs manual removal.
+============================================================
